@@ -29,17 +29,30 @@ const getPointManager = asyncHandler(async (req, res) => {
 //@access public
 const createPointManager = asyncHandler(async (req, res) => {
   console.log("The request body is", req.body);
-  const { ManagerStaffID, ManagerImage, ManagerPassword, MangerFName, MangerLName, MangerPhone, ManagerEmail, MangerCNIC, AddressID, ManagerOTP, IsVerified, IsActive, IsArchive, CreatedBy, UpdatedBy } = req.body;
+  const { ManagerStaffID, ManagerImage, ManagerPassword, ManagerFName, ManagerLName, ManagerPhone, ManagerEmail, ManagerCNIC, AddressID, ManagerOTP, IsVerified, IsActive, IsArchive, CreatedBy, UpdatedBy } = req.body;
+
+  if(!ManagerStaffID || !ManagerFName || !ManagerLName || !ManagerPhone)
+  {
+    res.status(400).json("Please Fill the required fields");
+    //throw new Error("Please Fill the required fields");
+  }
+
+  // Check if ManagerStaffID already exists
+const existingManager = await PointManager.findOne({ ManagerStaffID });
+if (existingManager) {
+  res.status(400);
+  throw new Error("ManagerStaffID already exists");
+}
 
   const pointManager = await PointManager.create({
     ManagerStaffID,
     ManagerImage,
     ManagerPassword,
-    MangerFName,
-    MangerLName,
-    MangerPhone,
+    ManagerFName,
+    ManagerLName,
+    ManagerPhone,
     ManagerEmail,
-    MangerCNIC,
+    ManagerCNIC,
     AddressID,
     ManagerOTP,
     IsVerified,
