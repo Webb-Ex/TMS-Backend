@@ -1,16 +1,17 @@
 // models/User.js
 const mongoose = require('mongoose');
+const jwt = require('jsonwebtoken');
 
 const userSchema = mongoose.Schema(
   {
     UserImage: String,
     UserFName: {
       type: String,
-      required: [true, 'Please Add the User First Name'],
+      //required: [true, 'Please Add the User First Name'],
     },
     UserLName: {
       type: String,
-      required: [true, 'Please Add the User Last Name'],
+      //required: [true, 'Please Add the User Last Name'],
     },
     UserPhone: {
       type: String,
@@ -34,6 +35,7 @@ const userSchema = mongoose.Schema(
     timestamps: true,
   }
 );
+
 
 const User = mongoose.model('User', userSchema);
 
