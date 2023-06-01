@@ -39,12 +39,6 @@ const signup = asyncHandler(async (req, res) => {
     res.status(400).json("Please Enter Phone Number");
   }
 
-  const existingUser = await User.findOne({ UserPhone });
-  if (existingUser) {
-    res.status(400);
-    throw new Error("UserPhone already exists");
-  }
-
   //Generate OTP
   const OTP = otpGenerator.generate(6, { 
     digits: true,    // Allow digits (0-9)
@@ -52,6 +46,20 @@ const signup = asyncHandler(async (req, res) => {
     upperCase: false, // Do not allow uppercase letters
     specialChars: false, // Do not allow special characters
   });
+
+  const existingUser = await User.findOne({ UserPhone });
+  if (existingUser) {
+    // User already exists, update UserOTP field and send OTP
+    const salt = await bcrypt.genSalt(10);
+    existingUser.UserOTP = await bcrypt.hash(OTP, salt);
+  //    existingUser.updatedAt = Date.now();
+
+    await existingUser.save();
+
+    console.log("The OTP is", OTP);
+    return res.status(200).json("OTP Sent Successfully");
+
+  }
   
   const number = UserPhone;
   console.log("The OTP is", OTP);
@@ -97,29 +105,61 @@ const verifyOTP = asyncHandler(async (req, res) => {
     throw new Error("Invalid OTP");
   }
 
-   // Check if OTP has expired
-   const otpExpiration = 120; // OTP expiration time in seconds
-   const currentTime = new Date().getTime() / 1000; // Current time in seconds
-   const otpCreationTime = user.createdAt.getTime() / 1000; // OTP creation time in seconds
-   const otpElapsedTime = currentTime - otpCreationTime;
- 
-   if (otpElapsedTime > otpExpiration) {
-     // OTP has expired, delete the user document
-     await User.deleteOne({ _id: user._id });
-     res.status(401);
-     throw new Error("OTP has expired");
-   }
+  if (user.IsVerified) {
+    // User is already verified, update the OTP expiration based on updatedAt
+    const otpExpiration = 120; // OTP expiration time in seconds
+    const currentTime = new Date().getTime() / 1000; // Current time in seconds
+    const otpUpdateTime = user.updatedAt.getTime() / 1000; // OTP update time in seconds
+    const otpElapsedTime = currentTime - otpUpdateTime;
 
-  // Update the user's verification status and save the user
-  user.IsVerified = true;
-  const updatedUser = await user.save();
+    console.log("The otpElapsedTime is", otpElapsedTime)
+
+    if (otpElapsedTime > otpExpiration) {
+      // OTP has expired, clear the UserOTP field
+      user.UserOTP = undefined; // or user.UserOTP = null
+      user.updatedAt = undefined; // or user.updatedAt = null
+
+      await user.save();
+
+      res.status(401);
+      throw new Error("OTP has expired");
+    }
+
+    // Update the user's verification status and save the user
+    user.IsVerified = true;
+    const updatedUser = await user.save();
+
+    // Generate JWT token
+    const token = generateToken(updatedUser._id, updatedUser.UserPhone);
+
+    // Return the token as the response
+    res.status(201).json({ token });
+  } else {
+    // User is not verified, check the OTP expiration based on createdAt
+    const otpExpiration = 120; // OTP expiration time in seconds
+    const currentTime = new Date().getTime() / 1000; // Current time in seconds
+    const otpCreationTime = user.createdAt.getTime() / 1000; // OTP creation time in seconds
+    const otpElapsedTime = currentTime - otpCreationTime;
+
+    console.log("The otpElapsedTime is", otpElapsedTime);
+
+    if (otpElapsedTime > otpExpiration) {
+      // OTP has expired, delete the user document
+      await User.deleteOne({ _id: user._id });
+      res.status(401);
+      throw new Error("OTP has expired");
+    }
+
+    // Update the user's verification status and save the user
+    user.IsVerified = true;
+    const updatedUser = await user.save();
 
   // Generate JWT token
   const token = generateToken(updatedUser._id, updatedUser.UserPhone);
 
   // Return the token as the response
   res.status(201).json({ token });
-});
+}});
 
 
 //@desc Update User
