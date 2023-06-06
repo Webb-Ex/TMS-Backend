@@ -1,11 +1,13 @@
 // controllers/UserController.js
-
 const asyncHandler = require("express-async-handler");
 const User = require("../models/userModel");
 const jwt = require("jsonwebtoken");
 const otpGenerator = require("otp-generator");
 const _ = require("lodash");
 const bcrypt = require("bcrypt");
+const sms = require("../services/sendSMSOTP");
+const { sendOTP } = require('../services/gmailOTP');
+
 
 //@desc Get all Users
 //@route GET /api/users
@@ -33,7 +35,7 @@ const getUser = asyncHandler(async (req, res) => {
 //@access public
 const signup = asyncHandler(async (req, res) => {
   console.log("The request body is", req.body);
-  const { UserPhone, } = req.body;
+  const { UserPhone } = req.body;
 
   if(!UserPhone){
     res.status(400).json("Please Enter Phone Number");
@@ -56,13 +58,25 @@ const signup = asyncHandler(async (req, res) => {
 
     await existingUser.save();
 
+     //Send OTP to the user's email
+  // try {
+  //   await sendOTP(UserPhone, OTP);
+  //   res.status(200).json('OTP sent successfully');
+  // } catch (error) {
+  //   console.error('Error sending OTP:', error);
+  //   res.status(500).json('Failed to send OTP');
+  // }
+
     console.log("The OTP is", OTP);
+    //sms(UserPhone, OTP);
     return res.status(200).json("OTP Sent Successfully");
 
   }
   
   const number = UserPhone;
   console.log("The OTP is", OTP);
+
+  //sms(number, OTP);
 
   //Save OTP to DB
   const otp = new User({ UserPhone: number, UserOTP: OTP });
@@ -129,11 +143,15 @@ const verifyOTP = asyncHandler(async (req, res) => {
     user.IsVerified = true;
     const updatedUser = await user.save();
 
+    
     // Generate JWT token
     const token = generateToken(updatedUser._id, updatedUser.UserPhone);
 
-    // Return the token as the response
-    res.status(201).json({ token });
+     // Include UserFName and UserLName in the response
+     const { UserFName, UserLName } = updatedUser;
+
+     // Return the token and user's first name and last name as the response
+     res.status(201).json({ UserFName, UserLName, token });
   } else {
     // User is not verified, check the OTP expiration based on createdAt
     const otpExpiration = 120; // OTP expiration time in seconds
@@ -157,8 +175,11 @@ const verifyOTP = asyncHandler(async (req, res) => {
   // Generate JWT token
   const token = generateToken(updatedUser._id, updatedUser.UserPhone);
 
-  // Return the token as the response
-  res.status(201).json({ token });
+// Include UserFName and UserLName in the response
+const { UserFName, UserLName } = updatedUser;
+
+// Return the token and user's first name and last name as the response
+res.status(201).json({ token, UserFName, UserLName });
 }});
 
 
